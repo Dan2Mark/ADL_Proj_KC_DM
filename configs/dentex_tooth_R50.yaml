@@ -1,0 +1,33 @@
+# Stage 2: tooth instance segmentation with FDI enumeration.
+# 634 x-rays, every tooth annotated (28.5 per image), 32 classes (11..48).
+#
+# This is the model that draws the green boxes with tooth numbers.  Its
+# 32-class head is laid out as (quadrant - 1) * 8 + (position - 1), which is
+# the same convention public tooth-segmentation checkpoints use, so one can be
+# dropped in via MODEL.WEIGHTS.
+_BASE_: Base-DENTEX-Mask2Former.yaml
+
+MODEL:
+  SEM_SEG_HEAD:
+    NUM_CLASSES: 32
+  DENTEX:
+    TASK: "tooth"
+    # The flat 32-way head already encodes quadrant x position, so no auxiliary
+    # heads are needed here; keeping it flat also keeps checkpoints compatible
+    # with stock Mask2Former.
+    AUX_HEADS: []
+
+DATASETS:
+  TRAIN: ("dentex_tooth_train",)
+  TEST: ("dentex_tooth_val",)
+
+SOLVER:
+  # 578 training x-rays at batch 2 -> about 40 epochs.
+  MAX_ITER: 12000
+  STEPS: (9000, 11000)
+
+TEST:
+  # 32 teeth, plus slack for duplicate queries that post-processing removes.
+  DETECTIONS_PER_IMAGE: 100
+
+OUTPUT_DIR: "outputs/stage2_tooth"

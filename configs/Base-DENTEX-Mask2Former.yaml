@@ -1,0 +1,123 @@
+# Shared Mask2Former R50 settings for every DENTEX stage.
+#
+# Self-contained on purpose: it does not _BASE_ into the Mask2Former checkout,
+# so the configs keep working wherever that repo happens to be cloned.
+#
+# Sized for a single 16 GB GPU (Colab T4 / P100).  On a bigger card raise
+# SOLVER.IMS_PER_BATCH and INPUT.MIN_SIZE_TRAIN together.
+
+MODEL:
+  META_ARCHITECTURE: "HierarchicalMaskFormer"
+  WEIGHTS: "detectron2://ImageNetPretrained/torchvision/R-50.pkl"
+  # Panoramic x-rays are stored as 3-channel RGB; ImageNet statistics are the
+  # right choice because the backbone starts from ImageNet weights.
+  PIXEL_MEAN: [123.675, 116.280, 103.530]
+  PIXEL_STD: [58.395, 57.120, 57.375]
+  BACKBONE:
+    NAME: "build_resnet_backbone"
+    FREEZE_AT: 0
+  RESNETS:
+    DEPTH: 50
+    STEM_TYPE: "basic"
+    STEM_OUT_CHANNELS: 64
+    STRIDE_IN_1X1: False
+    OUT_FEATURES: ["res2", "res3", "res4", "res5"]
+    RES5_MULTI_GRID: [1, 1, 1]
+  SEM_SEG_HEAD:
+    NAME: "MaskFormerHead"
+    IGNORE_VALUE: 255
+    NUM_CLASSES: 32          # overridden per stage
+    LOSS_WEIGHT: 1.0
+    CONVS_DIM: 256
+    MASK_DIM: 256
+    NORM: "GN"
+    PIXEL_DECODER_NAME: "MSDeformAttnPixelDecoder"
+    IN_FEATURES: ["res2", "res3", "res4", "res5"]
+    DEFORMABLE_TRANSFORMER_ENCODER_IN_FEATURES: ["res3", "res4", "res5"]
+    COMMON_STRIDE: 4
+    TRANSFORMER_ENC_LAYERS: 6
+  MASK_FORMER:
+    TRANSFORMER_DECODER_NAME: "MultiScaleMaskedTransformerDecoder"
+    TRANSFORMER_IN_FEATURE: "multi_scale_pixel_decoder"
+    DEEP_SUPERVISION: True
+    NO_OBJECT_WEIGHT: 0.1
+    CLASS_WEIGHT: 2.0
+    MASK_WEIGHT: 5.0
+    DICE_WEIGHT: 5.0
+    HIDDEN_DIM: 256
+    # A mouth has at most 32 teeth; 100 queries leaves plenty of slack and
+    # matches the public checkpoints, so transfer stays clean.
+    NUM_OBJECT_QUERIES: 100
+    NHEADS: 8
+    DROPOUT: 0.0
+    DIM_FEEDFORWARD: 2048
+    ENC_LAYERS: 0
+    PRE_NORM: False
+    ENFORCE_INPUT_PROJ: False
+    SIZE_DIVISIBILITY: 32
+    DEC_LAYERS: 10            # 9 decoder layers + 1 on the learnable queries
+    TRAIN_NUM_POINTS: 12544
+    OVERSAMPLE_RATIO: 3.0
+    IMPORTANCE_SAMPLE_RATIO: 0.75
+    TEST:
+      SEMANTIC_ON: False
+      INSTANCE_ON: True
+      PANOPTIC_ON: False
+      OVERLAP_THRESHOLD: 0.8
+      OBJECT_MASK_THRESHOLD: 0.8
+  DENTEX:
+    PREDICT_BOXES: True
+    MASK_THRESHOLD: 0.5
+    KEEP_MASKS: True
+    EVAL_SCORE_THRESHOLD: 0.5
+    CLASS_WEIGHT_POWER: 0.5
+
+INPUT:
+  FORMAT: "RGB"
+  # Panoramic x-rays are about 2900x1400, so a short side of 640-896 keeps a
+  # molar around 60x150 px -- small enough to batch, large enough for caries.
+  MIN_SIZE_TRAIN: [640, 704, 768, 832, 896]
+  MIN_SIZE_TRAIN_SAMPLING: "choice"
+  MAX_SIZE_TRAIN: 2048
+  MIN_SIZE_TEST: 896
+  MAX_SIZE_TEST: 2048
+  SIZE_DIVISIBILITY: -1       # the model's ImageList pads the batch instead
+  CROP:
+    ENABLED: False
+  XRAY:
+    BRIGHTNESS: 0.2
+    CONTRAST: 0.2
+    HFLIP_PROB: 0.5
+    MIRROR_AWARE_FLIP: True   # never turn this off while flipping
+    RANDOM_SCALE_RANGE: [1.0, 1.0]
+    RANDOM_SCALE_PROB: 0.0
+
+SOLVER:
+  IMS_PER_BATCH: 2
+  BASE_LR: 0.0001
+  OPTIMIZER: "ADAMW"
+  WEIGHT_DECAY: 0.05
+  WEIGHT_DECAY_NORM: 0.0
+  WEIGHT_DECAY_EMBED: 0.0
+  BACKBONE_MULTIPLIER: 0.1
+  WARMUP_FACTOR: 0.001
+  WARMUP_ITERS: 500
+  CHECKPOINT_PERIOD: 2000
+  CLIP_GRADIENTS:
+    ENABLED: True
+    CLIP_TYPE: "full_model"
+    CLIP_VALUE: 0.01
+    NORM_TYPE: 2.0
+  AMP:
+    ENABLED: True
+
+DATALOADER:
+  NUM_WORKERS: 2
+  FILTER_EMPTY_ANNOTATIONS: True
+  REPEAT_THRESHOLD_DENTEX: 0.0
+
+TEST:
+  EVAL_PERIOD: 1000
+  DETECTIONS_PER_IMAGE: 100
+
+VERSION: 2

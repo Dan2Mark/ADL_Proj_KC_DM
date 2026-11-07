@@ -1,0 +1,48 @@
+# Stage 3: hierarchical abnormal-tooth detection.
+# 705 x-rays, only abnormal teeth annotated (5.0 per image).
+#
+# Primary head  : diagnosis, 4 classes (Impacted / Caries / Periapical Lesion / Deep Caries)
+# Auxiliary head: quadrant  (4 classes)
+# Auxiliary head: position  (8 classes)
+#
+# quadrant + position give the FDI number of the affected tooth, so one
+# detection answers both "what is wrong" and "on which tooth".
+#
+# Warm-start this from stage 2 with scripts/train.py --init-from, which strips
+# the 32-class head so only the shape-compatible weights transfer.
+_BASE_: Base-DENTEX-Mask2Former.yaml
+
+MODEL:
+  SEM_SEG_HEAD:
+    NUM_CLASSES: 4
+  MASK_FORMER:
+    TRANSFORMER_DECODER_NAME: "HierarchicalMultiScaleMaskedTransformerDecoder"
+  DENTEX:
+    TASK: "disease"
+    AUX_HEADS: ["quadrant", "position"]
+    # Position is the hard part of DENTEX, so it is weighted above quadrant.
+    AUX_LOSS_WEIGHTS: [2.0, 2.0]
+    AUX_NO_OBJECT_WEIGHT: -1.0
+    # Training-set counts over the whole disease subset; the criterion turns
+    # these into inverse-frequency weights with CLASS_WEIGHT_POWER.
+    # Caries outnumbers periapical lesions 2189 to 158.
+    CLASS_FREQUENCIES:
+      disease: [604, 2189, 158, 578]
+    CLASS_WEIGHT_POWER: 0.5
+
+DATASETS:
+  TRAIN: ("dentex_disease_train",)
+  TEST: ("dentex_disease_val",)
+
+DATALOADER:
+  # 27 of the 705 x-rays have no pathology at all.  They are useful negatives
+  # for a set-prediction model, so do not drop them.
+  FILTER_EMPTY_ANNOTATIONS: False
+  # Oversample x-rays containing rare diagnoses.
+  REPEAT_THRESHOLD_DENTEX: 0.3
+
+SOLVER:
+  MAX_ITER: 12000
+  STEPS: (9000, 11000)
+
+OUTPUT_DIR: "outputs/stage3_disease"

@@ -1,0 +1,23 @@
+# Stage 1 (optional warm-up): quadrant detection, 693 x-rays, 4 classes.
+#
+# The objects here are jaw regions, not teeth, so this stage is not useful on
+# its own -- it exists because the DENTEX baseline warm-starts enumeration from
+# it, and it is cheap (about 20 minutes on a T4).
+_BASE_: Base-DENTEX-Mask2Former.yaml
+
+MODEL:
+  SEM_SEG_HEAD:
+    NUM_CLASSES: 4
+  DENTEX:
+    TASK: "quadrant"
+    AUX_HEADS: []
+
+DATASETS:
+  TRAIN: ("dentex_quadrant_train",)
+  TEST: ("dentex_quadrant_val",)
+
+SOLVER:
+  MAX_ITER: 4000
+  STEPS: (3000, 3600)
+
+OUTPUT_DIR: "outputs/stage1_quadrant"

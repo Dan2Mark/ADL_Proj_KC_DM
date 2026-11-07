@@ -1,0 +1,24 @@
+# Core (everything except the detectron2 stack installs with plain pip).
+numpy>=1.24
+Pillow>=10.0
+huggingface_hub>=0.23
+tqdm>=4.66
+pycocotools>=2.0.7
+opencv-python-headless>=4.9      # detectron2 imports cv2
+
+# PyTorch: install the build that matches your CUDA runtime first, e.g.
+#   pip install torch==2.4.1 torchvision==0.19.1 --index-url https://download.pytorch.org/whl/cu121
+# On Colab torch is preinstalled -- do not reinstall it, detectron2 is compiled
+# against whatever version is already there.
+torch>=2.1
+torchvision>=0.16
+
+# detectron2 + Mask2Former are NOT pip-installable as versioned wheels.
+# See README.md "Installation"; in short:
+#   pip install 'git+https://github.com/facebookresearch/detectron2.git' --no-build-isolation
+#   git clone https://github.com/facebookresearch/Mask2Former.git
+#   (cd Mask2Former/mask2former/modeling/pixel_decoder/ops && python setup.py build install)
+
+# Optional, for notebooks and figures
+matplotlib>=3.8
+ipywidgets>=8.1
